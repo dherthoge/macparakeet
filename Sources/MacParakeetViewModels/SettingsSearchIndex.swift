@@ -118,6 +118,16 @@ public enum SettingsSearchIndex {
         "meeting.autoStop"
     ]
 
+    /// Ids gated on `AppFeatures.isVoiceProfilesAvailable()`. The view renders
+    /// these rows only behind the experimental feature (the management row
+    /// also shows when voices are already stored, which the index cannot see),
+    /// so search does not offer them in builds where it is off. The Reset
+    /// voice-profiles row is not listed: the view never gates it on the flag.
+    private static let voiceProfilesGatedIds: Set<String> = [
+        "meeting.rememberSpeakers",
+        "meeting.voiceProfiles",
+    ]
+
     public static let entries: [SettingsSearchEntry] = {
         var result = allEntries
         if !AppFeatures.meetingRecordingEnabled {
@@ -128,6 +138,9 @@ public enum SettingsSearchIndex {
         }
         if !AppFeatures.meetingAutoStopEnabled {
             result = result.filter { !meetingAutoStopGatedIds.contains($0.id) }
+        }
+        if !AppFeatures.isVoiceProfilesAvailable() {
+            result = result.filter { !voiceProfilesGatedIds.contains($0.id) }
         }
         return result
     }()
@@ -154,11 +167,46 @@ public enum SettingsSearchIndex {
             cardAnchor: "dictation"
         ),
         SettingsSearchEntry(
+            id: "dictation.push.to.talk",
+            tab: .capture,
+            title: "Push to talk",
+            subtitle: "in Dictation",
+            keywords: [
+                "hold", "hold to talk", "hold to dictate", "hotkey", "shortcut", "fn key",
+                "release",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.hands.free",
+            tab: .capture,
+            title: "Hands-free mode",
+            subtitle: "in Dictation",
+            keywords: [
+                "hands free", "handsfree", "toggle", "double tap", "tap to start", "hotkey",
+                "shortcut",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.ai.polish",
+            tab: .capture,
+            title: "AI-polished dictation",
+            subtitle: "in Dictation",
+            keywords: [
+                "ai", "polish", "polished", "formatter", "llm", "rewrite", "clean up", "hotkey",
+                "shortcut",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
             id: "dictation.idle.pill",
             tab: .capture,
-            title: "Show idle pill at all times",
+            title: "Show dictation pill at all times",
             subtitle: "in Dictation",
-            keywords: ["pill", "indicator", "always visible", "menu bar", "floating"],
+            keywords: [
+                "idle pill", "pill", "indicator", "always visible", "menu bar", "floating",
+            ],
             cardAnchor: "dictation"
         ),
         SettingsSearchEntry(
@@ -208,6 +256,16 @@ public enum SettingsSearchIndex {
             cardAnchor: "dictation"
         ),
         SettingsSearchEntry(
+            id: "dictation.preview.text.size",
+            tab: .capture,
+            title: "Preview text size",
+            subtitle: "in Dictation",
+            keywords: [
+                "font size", "text size", "bigger text", "larger text", "preview", "live preview",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
             id: "dictation.undo.window",
             tab: .capture,
             title: "Undo window",
@@ -234,6 +292,45 @@ public enum SettingsSearchIndex {
             keywords: [
                 "preserve", "discarded", "cancelled", "canceled", "recover",
                 "accidental cancel", "keep cancelled", "history",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.silence.auto.stop",
+            tab: .capture,
+            title: "Auto-stop after silence",
+            subtitle: "in Dictation",
+            keywords: [
+                "silence", "auto stop", "stop automatically", "stop recording",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.silence.delay",
+            tab: .capture,
+            title: "Silence delay",
+            subtitle: "in Dictation",
+            keywords: ["silence", "delay", "timeout", "seconds", "how long", "auto stop"],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.instant",
+            tab: .capture,
+            title: "Instant dictation",
+            subtitle: "in Dictation",
+            keywords: [
+                "instant", "mic ready", "warm", "low latency", "faster start", "first words",
+                "mic indicator", "airpods", "bluetooth",
+            ],
+            cardAnchor: "dictation"
+        ),
+        SettingsSearchEntry(
+            id: "dictation.pause.media",
+            tab: .capture,
+            title: "Pause media while dictating",
+            subtitle: "in Dictation",
+            keywords: [
+                "pause", "media", "music", "playback", "resume", "spotify", "podcast",
             ],
             cardAnchor: "dictation"
         ),
@@ -368,6 +465,16 @@ public enum SettingsSearchIndex {
             cardAnchor: "meeting"
         ),
         SettingsSearchEntry(
+            id: "meeting.audioSources",
+            tab: .capture,
+            title: "Audio sources",
+            subtitle: "in Meeting Recording",
+            keywords: [
+                "audio source", "microphone only", "system audio only", "mic and system audio",
+            ],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
             id: "meeting.startMuted",
             tab: .capture,
             title: "Start meetings muted",
@@ -398,11 +505,73 @@ public enum SettingsSearchIndex {
             cardAnchor: "meeting"
         ),
         SettingsSearchEntry(
+            id: "meeting.rememberSpeakers",
+            tab: .capture,
+            title: "Remember speakers",
+            subtitle: "in Meeting Recording",
+            keywords: [
+                "remember", "voice", "voiceprint", "voice profile", "recognize", "suggest names",
+                "speaker names", "consent",
+            ],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
+            id: "meeting.voiceProfiles",
+            tab: .capture,
+            title: "Voice profiles",
+            subtitle: "in Meeting Recording",
+            keywords: [
+                "voices", "voice profile", "voiceprint", "delete voices", "manage voices",
+                "saved voices",
+            ],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
+            id: "meeting.autoSave",
+            tab: .capture,
+            title: "Also save meetings to a folder",
+            subtitle: "in Meeting Recording",
+            keywords: [
+                "save", "export", "folder", "copy", "auto save", "autosave", "markdown", "txt",
+                "format",
+            ],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
+            id: "meeting.autoSave.timestamps",
+            tab: .capture,
+            title: "Include timestamps",
+            subtitle: "in Meeting Recording",
+            keywords: ["timestamps", "time", "export", "auto save", "folder", "paragraph"],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
+            id: "meeting.autoSave.speakerLabels",
+            tab: .capture,
+            title: "Include speaker labels",
+            subtitle: "in Meeting Recording",
+            keywords: ["speaker labels", "speaker names", "export", "auto save", "folder"],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
+            id: "meeting.autoSave.metadata",
+            tab: .capture,
+            title: "Include meeting details",
+            subtitle: "in Meeting Recording",
+            keywords: [
+                "meeting details", "metadata", "title", "duration", "export", "auto save", "folder",
+            ],
+            cardAnchor: "meeting"
+        ),
+        SettingsSearchEntry(
             id: "meeting.autoStop",
             tab: .capture,
-            title: "Auto-stop meetings",
+            title: "Stop recording automatically",
             subtitle: "in Meeting Recording",
-            keywords: ["auto stop", "auto-stop", "stop recording", "meeting ended", "silence", "zoom closed"],
+            keywords: [
+                "auto stop", "auto-stop", "auto-stop meetings", "stop recording",
+                "meeting ended", "silence", "zoom closed",
+            ],
             cardAnchor: "meeting"
         ),
 
@@ -508,7 +677,7 @@ public enum SettingsSearchIndex {
                 "openai compatible", "summary", "summaries", "chat", "ask", "api key",
                 "provider", "local ai", "local app", "command line", "cli",
                 "kimi", "moonshot", "deepseek", "qwen", "dashscope", "z.ai", "zai", "z ai", "glm", "minimax",
-                "openrouter",
+                "openrouter", "local-network http", "allow http", "http", "self-hosted",
             ],
             cardAnchor: "ai.provider"
         ),
@@ -543,7 +712,7 @@ public enum SettingsSearchIndex {
             title: "Meeting Titles",
             subtitle: "Auto-generate short meeting names from completed transcripts.",
             keywords: [
-                "meeting title", "meeting titles", "auto title", "auto-title",
+                "meeting title", "meeting titles", "auto title", "auto-title", "auto-title meetings",
                 "automatic title", "library title", "recording title", "timestamp title",
             ],
             cardAnchor: "ai.meetingTitles"
@@ -602,6 +771,17 @@ public enum SettingsSearchIndex {
             cardAnchor: "system.startup"
         ),
         SettingsSearchEntry(
+            id: "system.startup.menuBarOnly",
+            tab: .system,
+            title: "Menu bar only mode",
+            subtitle: "in Startup",
+            keywords: [
+                "dock", "dock icon", "hide dock icon", "no dock", "menu bar only", "menu bar app",
+                "background",
+            ],
+            cardAnchor: "system.startup"
+        ),
+        SettingsSearchEntry(
             id: "system.permissions",
             tab: .system,
             title: "Permissions",
@@ -647,11 +827,64 @@ public enum SettingsSearchIndex {
             cardAnchor: "system.storage"
         ),
         SettingsSearchEntry(
+            id: "system.storage.saveHistory",
+            tab: .system,
+            title: "Save dictation history",
+            subtitle: "in Storage",
+            keywords: [
+                "history", "dictation history", "save dictations", "don't save", "private",
+                "voice stats",
+            ],
+            cardAnchor: "system.storage"
+        ),
+        SettingsSearchEntry(
+            id: "system.storage.saveAudio",
+            tab: .system,
+            title: "Save audio recordings",
+            subtitle: "in Storage",
+            keywords: [
+                "audio", "recordings", "dictation audio", "keep audio", "delete audio",
+                "transcript only",
+            ],
+            cardAnchor: "system.storage"
+        ),
+        SettingsSearchEntry(
+            id: "system.storage.keepDownloadAudio",
+            tab: .system,
+            title: "Keep downloaded video audio",
+            subtitle: "in Storage",
+            keywords: [
+                "video", "youtube", "downloaded audio", "auto delete", "keep", "cache", "downloads",
+            ],
+            cardAnchor: "system.storage"
+        ),
+        SettingsSearchEntry(
+            id: "system.storage.meetingRetention",
+            tab: .system,
+            title: "Meeting audio retention",
+            subtitle: "in Storage",
+            keywords: [
+                "retention", "meeting audio", "delete after", "days", "keep audio", "cleanup",
+                "auto delete",
+            ],
+            cardAnchor: "system.storage"
+        ),
+        SettingsSearchEntry(
             id: "system.updates",
             tab: .system,
             title: "Updates",
             subtitle: "Automatic update checks and manual update.",
             keywords: ["update", "sparkle", "version", "release", "auto update"],
+            cardAnchor: "system.updates"
+        ),
+        SettingsSearchEntry(
+            id: "system.updates.manualCheck",
+            tab: .system,
+            title: "Manual check",
+            subtitle: "in Updates",
+            keywords: [
+                "check for updates", "check now", "update now", "latest version", "new version",
+            ],
             cardAnchor: "system.updates"
         ),
         SettingsSearchEntry(
@@ -663,11 +896,32 @@ public enum SettingsSearchIndex {
             cardAnchor: "system.privacy"
         ),
         SettingsSearchEntry(
+            id: "system.privacy.telemetry",
+            tab: .system,
+            title: "Help improve MacParakeet",
+            subtitle: "in Privacy",
+            keywords: [
+                "telemetry", "usage statistics", "analytics", "opt out", "anonymous", "tracking",
+            ],
+            cardAnchor: "system.privacy"
+        ),
+        SettingsSearchEntry(
             id: "system.onboarding",
             tab: .system,
             title: "Setup",
             subtitle: "Re-run guided setup.",
             keywords: ["onboarding", "setup", "first run", "tutorial", "getting started"],
+            cardAnchor: "system.onboarding"
+        ),
+        SettingsSearchEntry(
+            id: "system.onboarding.rerun",
+            tab: .system,
+            title: "Run setup again",
+            subtitle: "in Setup",
+            keywords: [
+                "rerun", "re-run", "guided setup", "onboarding", "permissions", "model download",
+                "troubleshoot", "fix",
+            ],
             cardAnchor: "system.onboarding"
         ),
         SettingsSearchEntry(
@@ -686,6 +940,65 @@ public enum SettingsSearchIndex {
             keywords: [
                 "reset", "clear", "delete", "destructive", "wipe",
                 "lifetime stats", "clear all dictations", "clear transform history", "clear youtube",
+            ],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.dictationHistory",
+            tab: .system,
+            title: "Dictation history",
+            subtitle: "in Reset & Cleanup",
+            keywords: [
+                "clear dictations", "delete dictations", "delete history", "erase", "wipe",
+                "audio files",
+            ],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.transformHistory",
+            tab: .system,
+            title: "Transform history",
+            subtitle: "in Reset & Cleanup",
+            keywords: ["clear transforms", "delete transform runs", "transforms", "wipe"],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.meetingAudio",
+            tab: .system,
+            title: "Meeting audio",
+            subtitle: "in Reset & Cleanup",
+            keywords: ["clear meeting audio", "delete meeting audio", "recordings", "wipe"],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.videoAudio",
+            tab: .system,
+            title: "Downloaded video audio",
+            subtitle: "in Reset & Cleanup",
+            keywords: [
+                "clear downloads", "delete downloads", "youtube", "video", "downloaded audio",
+                "wipe",
+            ],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.voiceProfiles",
+            tab: .system,
+            title: "Voice profiles",
+            subtitle: "in Reset & Cleanup",
+            keywords: [
+                "delete voices", "clear voices", "voiceprint", "speakers", "wipe", "biometric",
+            ],
+            cardAnchor: "system.reset"
+        ),
+        SettingsSearchEntry(
+            id: "system.reset.lifetimeStats",
+            tab: .system,
+            title: "Lifetime voice stats",
+            subtitle: "in Reset & Cleanup",
+            keywords: [
+                "stats", "counters", "reset counters", "total words", "longest dictation",
+                "lifetime",
             ],
             cardAnchor: "system.reset"
         ),

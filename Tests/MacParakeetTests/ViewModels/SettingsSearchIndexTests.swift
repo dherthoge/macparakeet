@@ -476,4 +476,88 @@ final class SettingsSearchIndexTests: XCTestCase {
         let resultsInIndexOrder = results.map(\.id).map { id in indexOrder.firstIndex(of: id)! }
         XCTAssertEqual(resultsInIndexOrder, resultsInIndexOrder.sorted())
     }
+
+    func testPauseMediaQueriesFindDictationToggle() {
+        for query in ["pause", "media", "music"] {
+            let ids = SettingsSearchIndex.matches(query).map(\.id)
+            XCTAssertTrue(
+                ids.contains("dictation.pause.media"),
+                "Query \(query) should find the Pause media while dictating setting"
+            )
+        }
+        XCTAssertEqual(
+            SettingsSearchIndex.matches("pause").first?.id,
+            "dictation.pause.media",
+            "The pause toggle should lead the results for 'pause'"
+        )
+    }
+
+    func testPauseMediaEntryPointsAtDictationCard() throws {
+        let entry = try XCTUnwrap(
+            SettingsSearchIndex.entries.first { $0.id == "dictation.pause.media" }
+        )
+        XCTAssertEqual(entry.title, "Pause media while dictating")
+        XCTAssertEqual(entry.tab, .capture)
+        XCTAssertEqual(entry.cardAnchor, "dictation")
+    }
+
+    func testVoiceProfileRowsFollowFeatureFlag() {
+        let ids = Set(SettingsSearchIndex.entries.map(\.id))
+        for id in ["meeting.rememberSpeakers", "meeting.voiceProfiles"] {
+            XCTAssertEqual(
+                ids.contains(id),
+                AppFeatures.isVoiceProfilesAvailable(),
+                "\(id) should be indexed only when voice profiles are available"
+            )
+        }
+    }
+
+    /// Every settings row the view declares through the shared row helpers
+    /// must have an index entry carrying its exact title (as the entry title
+    /// or as a keyword). This reads `SettingsView.swift` because the rows live
+    /// in the app target, which the view-model tests cannot import. Rows built
+    /// without these helpers (the AI and Calendar tabs) are not scanned.
+    func testEveryDeclaredSettingsRowTitleIsSearchable() throws {
+        try XCTSkipUnless(
+            AppFeatures.meetingRecordingEnabled && AppFeatures.meetingAutoStopEnabled,
+            "Meeting rows are filtered out of the index while their flags are off"
+        )
+        let viewURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/MacParakeet/Views/Settings/SettingsView.swift")
+        let source = try String(contentsOf: viewURL, encoding: .utf8)
+        let pattern =
+            #"\b(?:settingsToggleRow|SettingsRow|rowText|transcriptionHotkeyRow|resetActionRow|settingsCard|SettingsCard)\(\s*title:\s*"([^"]+)""#
+        let regex = try NSRegularExpression(pattern: pattern)
+        let range = NSRange(source.startIndex..., in: source)
+        let declared = Set(
+            regex.matches(in: source, range: range).compactMap { match -> String? in
+                guard let titleRange = Range(match.range(at: 1), in: source) else { return nil }
+                return String(source[titleRange])
+            }
+        )
+        XCTAssertGreaterThan(declared.count, 40, "The row scan should find the Settings rows")
+
+        // Status lines that share the row helper but are not settings.
+        var exempt: Set<String> = ["Not applied yet", "Pending recovery"]
+        if !AppFeatures.isVoiceProfilesAvailable() {
+            // "Voice profiles" is also a Reset row that is never flag-gated.
+            exempt.insert("Remember speakers")
+        }
+
+        let missing = declared.subtracting(exempt).filter { title in
+            let needle = title.lowercased()
+            return !SettingsSearchIndex.entries.contains { entry in
+                entry.title.lowercased() == needle
+                    || entry.keywords.contains { $0.lowercased() == needle }
+            }
+        }
+        XCTAssertTrue(
+            missing.isEmpty,
+            "Settings rows with no search entry: \(missing.sorted().joined(separator: ", "))"
+        )
+    }
 }
