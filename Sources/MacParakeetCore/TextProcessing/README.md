@@ -75,7 +75,14 @@ mode.
    Built-in spoken punctuation (`question mark` → `?`) runs after user
    snippets so a custom snippet of the same trigger still wins. A snippet
    expansion that itself contains a command phrase is also converted.
-   Prefix `literal` keeps the words. Default on for Clean dictation (and
+   English `comma`, `period` / `full stop`, `colon`, `semicolon`,
+   `new line`, and `new paragraph` type `,` `.` `:` `;` and a line or
+   paragraph break, and a spoken full stop or break capitalizes the next
+   word. Because these are also everyday words, they stay words right after
+   a determiner or possessive (`a`, `the`, `that`, `our`, ...) or right
+   before `of`, and `period` also stays after `time`, `trial`, `grace`, or
+   `waiting`. Prefix `literal` keeps the words. Default on for Clean
+   dictation (and
    `vocab process`, which previews that pipeline on typed text). File, URL,
    and meeting transcripts never run this step, because recorded speech that
    mentions "a question mark" means the words.

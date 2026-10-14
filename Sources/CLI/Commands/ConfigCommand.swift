@@ -105,7 +105,7 @@ struct ConfigCommand: ParsableCommand {
             key: "spoken-punctuation",
             valueSyntax: "on|off",
             allowedValues: ["on", "off"],
-            summary: "Convert spoken question/exclamation marks in Clean dictation. File, URL, and meeting transcripts never convert."
+            summary: "Convert spoken punctuation such as question mark, comma, and new line in Clean dictation. File, URL, and meeting transcripts never convert."
         ),
         CLIConfigKeySpec(
             key: "remove-um-filler",

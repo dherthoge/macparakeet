@@ -94,6 +94,16 @@ by checking exit code first: `2` = misuse, `1` = runtime, `0` = success.
 
 ## [Unreleased]
 
+### Added
+
+- `vocab process` and Clean dictation with `config spoken-punctuation on` now
+  convert English "comma", "period" / "full stop", "colon", "semicolon",
+  "new line", and "new paragraph" to `,` `.` `:` `;` and line or paragraph
+  breaks. The words stay as words after a determiner or possessive or before
+  "of", as in "a period of time". A spoken mark also replaces a full stop the
+  engine wrote just before it, so "hello. question mark" gives `hello?`.
+  `transcribe` and file retranscription are unchanged.
+
 ### Fixed
 
 - A provider request that hits its idle timeout reports `errorType` `timeout`

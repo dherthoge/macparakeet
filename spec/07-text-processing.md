@@ -70,7 +70,14 @@ Trigger phrases are replaced with their full expansion text.
 - Example: `"my signature"` → `"Best regards, David"`
 - After user snippets, Clean mode optionally converts spoken punctuation
   commands (`question mark` → `?`, `exclamation mark` / `exclamation point` → `!`,
-  plus DE/ES/FR/PT/PL aliases). Prefix `literal` (or `wörtlich` / `littéral` /
+  plus DE/ES/FR/PT/PL aliases). English `comma`, `period` / `full stop`,
+  `colon`, `semicolon` / `semi colon`, `new line`, and `new paragraph` type
+  `,` `.` `:` `;`, one newline, or a blank line; a spoken full stop or break
+  capitalizes the next word. These words are also ordinary nouns, so they stay
+  words right after a determiner or possessive (`a`, `an`, `the`, `this`,
+  `that`, `these`, `those`, `my`, `your`, `his`, `her`, `its`, `our`, `their`)
+  or right before `of`, and `period` also stays after `time`, `trial`,
+  `grace`, or `waiting`. Prefix `literal` (or `wörtlich` / `littéral` /
   `dosłownie`) keeps the words. User snippets of the same trigger still win.
   Default on; Vocabulary and `config set spoken-punctuation` can opt out.
   This runs on dictation only; `vocab process` also applies it because it
