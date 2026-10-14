@@ -95,6 +95,14 @@ public enum AppFeatures {
     /// phases are still being validated.
     public static let meetingCaptureReliabilityEnabled: Bool = true
 
+    /// AI-formatter output validation. When `true`, LLM-formatted transcripts are
+    /// checked against the deterministic baseline (length runaway, repetition
+    /// loop, dropped content) and fall back to that baseline when the output looks
+    /// broken. Default-on safety floor; kept behind a kill switch so it can be
+    /// disabled if thresholds over-reject in the field before they're telemetry-tuned.
+    /// Transforms are intentional rewrites and are never validated.
+    public static let refinementValidationEnabled: Bool = true
+
     /// Meeting source health presentation. When `false`, the Core health model,
     /// service plumbing, view-model state, and tests remain intact, but the
     /// panel chips, floating pill degraded glyph, and transcription-tile health

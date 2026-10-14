@@ -13,6 +13,7 @@ struct TranscriptFormatter: Sendable {
     let llmService: LLMServiceProtocol?
     let shouldUseAIFormatter: @Sendable () -> Bool
     let logger: Logger
+    var isValidationEnabled: @Sendable () -> Bool = { AppFeatures.refinementValidationEnabled }
 
     func format(
         _ text: String,
@@ -73,6 +74,25 @@ struct TranscriptFormatter: Sendable {
             let trimmed = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
             let run = runSource.map {
                 LLMRun(formatterResult: result, source: $0, feature: lane.feature)
+            }
+            if !trimmed.isEmpty, isValidationEnabled(),
+                case .reject(let reason) = RefinementValidator.validate(
+                    refined: trimmed, original: text, limits: lane.validatorLimits
+                )
+            {
+                // The LLM call succeeded; we are declining to use its output.
+                // Keep the succeeded `run` (provider, model and tokens intact)
+                // but deliver the deterministic baseline: text: nil routes the
+                // caller to its baseline, and the resolution is dropped so
+                // History never stamps a profile onto text it did not produce.
+                // Silent by design: no formatter warning is posted.
+                switch lane {
+                case .dictation:
+                    logger.warning("dictation_ai_formatter_rejected reason=\(reason.rawValue, privacy: .public)")
+                case .transcription:
+                    logger.warning("transcription_ai_formatter_rejected reason=\(reason.rawValue, privacy: .public)")
+                }
+                return FormatterOutcome(text: nil, run: run, resolution: nil)
             }
             return FormatterOutcome(text: trimmed.isEmpty ? nil : trimmed, run: run, resolution: resolution)
         } catch {
@@ -159,6 +179,15 @@ extension TranscriptFormatter {
                 "dictation"
             case .transcription:
                 "transcription"
+            }
+        }
+
+        var validatorLimits: RefinementValidator.Limits {
+            switch self {
+            case .dictation:
+                .dictation
+            case .transcription:
+                .transcription
             }
         }
     }

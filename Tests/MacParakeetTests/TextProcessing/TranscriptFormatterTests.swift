@@ -312,14 +312,185 @@ final class TranscriptFormatterTests: XCTestCase {
         await fulfillment(of: [started, finished], timeout: 0.1)
     }
 
+    // MARK: - Output validation
+
+    func testRunawayOutputFallsBackToBaseline() async throws {
+        let spoken = "send the quarterly report to the finance team before friday"
+        let mockLLMService = MockLLMService()
+        mockLLMService.formatTranscriptResult = Array(repeating: spoken, count: 40).joined(separator: " ")
+        let formatter = makeFormatter(llmService: mockLLMService)
+        let resolution = AIFormatterPromptResolution(
+            promptTemplate: "Rewrite for Slack.", matchKind: .exactApp,
+            profileID: UUID(), profileName: "Slack", profileOrigin: .custom
+        )
+        let warning = expectation(description: "AI formatter warning not posted")
+        warning.isInverted = true
+        let observer = NotificationCenter.default.addObserver(
+            forName: .macParakeetAIFormatterWarning,
+            object: nil,
+            queue: nil
+        ) { _ in
+            warning.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        for lane in [TranscriptFormatter.Lane.dictation, .transcription] {
+            let outcome = try await format(
+                formatter, text: spoken, lane: lane,
+                promptTemplate: resolution.promptTemplate, resolution: resolution
+            )
+
+            XCTAssertNil(outcome.text)
+            XCTAssertEqual(outcome.text ?? spoken, spoken)
+            XCTAssertNil(outcome.resolution)
+            // The provider call succeeded; only the use of its text is declined.
+            let run = try XCTUnwrap(outcome.run)
+            XCTAssertEqual(run.status, .succeeded)
+            XCTAssertEqual(run.feature, lane.feature)
+            XCTAssertNil(run.errorType)
+        }
+        await fulfillment(of: [warning], timeout: 0.1)
+        XCTAssertEqual(mockLLMService.formatTranscriptCallCount, 2)
+    }
+
+    func testGoodOutputPassesThrough() async throws {
+        let mockLLMService = MockLLMService()
+        mockLLMService.formatTranscriptResult = "Send the quarterly report to the finance team before Friday."
+        let formatter = makeFormatter(llmService: mockLLMService)
+        let resolution = AIFormatterPromptResolution(
+            promptTemplate: "Rewrite for Slack.", matchKind: .exactApp,
+            profileID: UUID(), profileName: "Slack", profileOrigin: .custom
+        )
+
+        let outcome = try await format(
+            formatter,
+            text: "um send the quarterly report to the finance team before friday",
+            promptTemplate: resolution.promptTemplate,
+            resolution: resolution
+        )
+
+        XCTAssertEqual(outcome.text, "Send the quarterly report to the finance team before Friday.")
+        XCTAssertEqual(outcome.resolution, resolution)
+        XCTAssertEqual(try XCTUnwrap(outcome.run).status, .succeeded)
+    }
+
+    func testValidationKillSwitchPassesBrokenOutput() async throws {
+        let spoken = "send the quarterly report to the finance team before friday"
+        let runaway = Array(repeating: spoken, count: 40).joined(separator: " ")
+        let mockLLMService = MockLLMService()
+        mockLLMService.formatTranscriptResult = runaway
+        let formatter = makeFormatter(llmService: mockLLMService, isValidationEnabled: { false })
+        let resolution = AIFormatterPromptResolution(
+            promptTemplate: "Rewrite for Slack.", matchKind: .exactApp,
+            profileID: UUID(), profileName: "Slack", profileOrigin: .custom
+        )
+
+        for lane in [TranscriptFormatter.Lane.dictation, .transcription] {
+            let outcome = try await format(
+                formatter, text: spoken, lane: lane,
+                promptTemplate: resolution.promptTemplate, resolution: resolution
+            )
+
+            XCTAssertEqual(outcome.text, runaway)
+            XCTAssertEqual(outcome.resolution, resolution)
+            XCTAssertEqual(try XCTUnwrap(outcome.run).status, .succeeded)
+        }
+    }
+
+    func testLoopingAndContentDroppingOutputFallBackToBaseline() async throws {
+        let spoken =
+            "the quarterly numbers came in below forecast because the enterprise renewals slipped "
+            + "into next month and marketing spend ran ahead of plan"
+        let brokenOutputs = [
+            // Back-to-back repetition inside the length limit.
+            "The quarterly numbers came in below forecast because the enterprise renewals slipped "
+                + "into next month and marketing spend ran ahead of plan the plan the plan the plan the plan.",
+            // What was said is gone.
+            "Thanks for sharing. Here is a short poem about autumn leaves falling by a quiet river.",
+        ]
+
+        for broken in brokenOutputs {
+            let mockLLMService = MockLLMService()
+            mockLLMService.formatTranscriptResult = broken
+            let formatter = makeFormatter(llmService: mockLLMService)
+            for lane in [TranscriptFormatter.Lane.dictation, .transcription] {
+                let outcome = try await format(formatter, text: spoken, lane: lane)
+
+                XCTAssertNil(outcome.text, broken)
+                XCTAssertEqual(try XCTUnwrap(outcome.run).status, .succeeded)
+            }
+        }
+    }
+
+    func testLanesApplyTheirOwnLimits() async throws {
+        let spoken = "send the quarterly report to the finance team before friday and copy the regional managers on it"
+        let refined =
+            "Send the quarterly report to the finance team before Friday, and copy the regional managers on it. "
+            + "Action items follow. The finance team owns the report. Regional managers receive a copy. "
+            + "The deadline is Friday. No other changes were requested. Please confirm receipt when it arrives. "
+            + "Thanks in advance for the quick turnaround."
+        let dictation = TranscriptFormatter.Lane.dictation.validatorLimits
+        let transcription = TranscriptFormatter.Lane.transcription.validatorLimits
+        XCTAssertGreaterThan(
+            refined.count, Int(Double(spoken.count) * dictation.maxLengthGrowth) + dictation.lengthSlack)
+        XCTAssertLessThanOrEqual(
+            refined.count, Int(Double(spoken.count) * transcription.maxLengthGrowth) + transcription.lengthSlack)
+        let mockLLMService = MockLLMService()
+        mockLLMService.formatTranscriptResult = refined
+        let formatter = makeFormatter(llmService: mockLLMService)
+
+        let dictationOutcome = try await format(formatter, text: spoken, lane: .dictation)
+        let transcriptionOutcome = try await format(formatter, text: spoken, lane: .transcription)
+
+        XCTAssertNil(dictationOutcome.text)
+        XCTAssertEqual(transcriptionOutcome.text, refined)
+    }
+
+    func testTranscriptionLaneAcceptsLongSpeakerLabeledSections() async throws {
+        // The real service cleans a long transcript in sections and joins them;
+        // the validator sees the joined text, so its limits have to hold for
+        // full-size sections of a speaker-labeled meeting.
+        let client = MockLLMClient()
+        let store = MockLLMConfigStore()
+        store.config = .openai(apiKey: "test-key")
+        let service = LLMService(client: client, contextResolver: MockLLMExecutionContextResolver(configStore: store))
+        let formatter = makeFormatter(llmService: service)
+        let transcript = (1...600).map { turn in
+            "Speaker \(turn % 3 + 1): item \(turn) moves to sprint \(turn % 7 + 1) because the vendor changed the api again"
+        }.joined(separator: "\n")
+        let sections = LLMService.formatterSections(of: transcript, limit: LLMService.formatterMaxSectionCharacters)
+        XCTAssertGreaterThan(sections.count, 1)
+        XCTAssertGreaterThan(sections[0].count, LLMService.formatterMaxSectionCharacters - 200)
+        let cleanedSections = sections.map { section in
+            section
+                .replacingOccurrences(of: #"(Speaker \d+):"#, with: "**$1:**", options: .regularExpression)
+                .replacingOccurrences(of: "\n", with: "\n\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        client.responseContents = cleanedSections
+
+        let outcome = try await format(
+            formatter,
+            text: transcript,
+            runSource: LLMRunSource(transcriptionId: UUID()),
+            lane: .transcription
+        )
+
+        XCTAssertEqual(client.chatCompletionCallCount, sections.count)
+        XCTAssertEqual(outcome.text, cleanedSections.joined(separator: "\n\n"))
+        XCTAssertEqual(try XCTUnwrap(outcome.run).status, .succeeded)
+    }
+
     private func makeFormatter(
         llmService: LLMServiceProtocol?,
-        shouldUseAIFormatter: @escaping @Sendable () -> Bool = { true }
+        shouldUseAIFormatter: @escaping @Sendable () -> Bool = { true },
+        isValidationEnabled: @escaping @Sendable () -> Bool = { true }
     ) -> TranscriptFormatter {
         TranscriptFormatter(
             llmService: llmService,
             shouldUseAIFormatter: shouldUseAIFormatter,
-            logger: logger
+            logger: logger,
+            isValidationEnabled: isValidationEnabled
         )
     }
 

@@ -754,6 +754,24 @@ has its own "Use for transcripts" toggle (default off). A transcript longer
 than one provider response is cleaned in successive sections and joined,
 instead of being skipped (#493, #1253).
 
+Formatter output is validated before it is used (`RefinementValidator`,
+behind `AppFeatures.refinementValidationEnabled`, default on). The joined
+result of every dictation and transcription formatter call is checked against
+the deterministic text it was given: blank output, output far longer than the
+input (dictation: 1.8x + 80 characters; transcription: 2x + 200), a
+back-to-back loop, and output that keeps under half of the input's distinct
+content words (only checked above 6 for dictation, 8 for transcription;
+fillers and common function words do not count). A loop is three or more
+occurrences of one 3- or 4-word phrase, each starting no later than the
+previous one ends (so one word said five times, or a two-word phrase four
+times, also counts), and it rejects only when that run is longer than the
+input's longest run of any phrase of the same length. A
+rejection is silent: the caller uses its deterministic text exactly as if the
+formatter had been skipped, no formatter warning is posted, the succeeded
+`LLMRun` is kept, the prompt resolution is dropped, and
+`<lane>_ai_formatter_rejected reason=...` is logged. Transforms are never
+validated.
+
 Browser hostname/domain matching is intentionally deferred. In V1, Gmail in
 Chrome can match an exact Chrome profile or the coarse `browser` category, but
 MacParakeet does not inspect the active tab URL or window title.
